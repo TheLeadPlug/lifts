@@ -30,7 +30,7 @@ background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='htt
 .nb svg{width:20px;height:20px}
 .nb.active{color:var(--fire)}
 .nb.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:2px;background:var(--fire)}
-.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 110px}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 150px}
 ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:var(--chalk)}
 .sh{padding:calc(20px + env(safe-area-inset-top)) 16px 12px;background:var(--bg);border-bottom:1px solid var(--chalk);flex-shrink:0}
 .page-eyebrow{font-family:var(--font-mono);font-size:10px;color:var(--smoke);letter-spacing:.15em;text-transform:uppercase}
@@ -122,7 +122,7 @@ textarea{resize:none;line-height:1.6}
 .rest.on{display:flex}
 .rest-t{font-family:var(--font-display);font-size:30px;line-height:1;color:var(--gold);min-width:74px}
 .rest-t.over{color:var(--lime)}
-.fb{position:sticky;bottom:8px;padding:10px 0 0;z-index:50}
+.fb{padding:14px 0 40px}
 /* PLAN */
 .plan-block{margin-bottom:14px}
 .plan-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
@@ -252,13 +252,16 @@ var SCHEME={
   tmtest: [[[70,'5'],[80,'5'],[90,'5'],[100,'3+']]]
 };
 
-/* Building the Monolith — percentages of TM, per week 1-6 */
+/* Building the Monolith — percentages of TM, per week 1-6.
+   Verified set-by-set against Wendler's published template (jimwendler.com).
+   ramp = first two sets, top = the 5x5 / 3x5 working percentage,
+   wm = Friday 20-rep squat, pv = Friday press {sets, pct}, am = Monday press AMRAP. */
 var BTM=[
   {ramp:[70,80],top:90,wm:45,pv:{s:10,p:70},am:70},
   {ramp:[65,75],top:85,wm:55,pv:{s:10,p:50},am:65},
   {ramp:[75,85],top:95,wm:55,pv:{s:10,p:75},am:75},
-  {ramp:[70,80],top:90,wm:50,pv:{s:12,p:70},am:70},
-  {ramp:[65,75],top:85,wm:60,pv:{s:12,p:50},am:65},
+  {ramp:[70,80],top:90,wm:50,pv:{s:12,p:60},am:70},
+  {ramp:[65,75],top:85,wm:65,pv:{s:15,p:65},am:65},
   {ramp:[75,85],top:95,wm:70,pv:{s:12,p:75},am:75}
 ];
 
@@ -291,7 +294,7 @@ var BTM_ASSIST=[
 ];
 
 /* ══════════════ STORAGE ══════════════ */
-var DEF={tm:{},sessions:[],pos:{b:0,w:0,d:0},act:null,subs:{},bw:[],runs:{},lastExport:null,started:null,tmLog:[]};
+var DEF={tm:{},sessions:[],pos:{b:0,w:0,d:0},act:null,subs:{},bw:[],runs:{},lastExport:null,started:null,tmLog:[],undo:null};
 function load(){try{var r=localStorage.getItem('iron531');if(!r)return JSON.parse(JSON.stringify(DEF));
  var d=JSON.parse(r);for(var k in DEF)if(d[k]===undefined)d[k]=JSON.parse(JSON.stringify(DEF[k]));return d;}
  catch(e){return JSON.parse(JSON.stringify(DEF));}}
@@ -405,7 +408,7 @@ function openModal(h){document.getElementById('modalBody').innerHTML=h;document.
 function rSetup(){
   document.getElementById('setupBody').innerHTML=
   '<div class="banner"><b>DON\'T MAX ALL FOUR IN ONE DAY</b><div class="note">Squatting a true 1RM tanks every lift after it, and your connective tissue is still catching up from the layoff. Work up to a hard 3–5 rep set on each lift <b>on its normal training day</b>, enter weight × reps below, and the app computes your estimated max. That is better data and it will not hurt you.</div></div>'
- +'<div class="banner gold"><b>TM = 85% OF ESTIMATED MAX</b><div class="note">Wendler\'s current guidance, and the same basis Building the Monolith needs. Using 85% everywhere means no reset when you switch blocks. If sets feel too easy in week 1, the TM test at week 8 will catch it and bump you.</div></div>'
+ +'<div class="banner gold"><b>TM = 85% OF ESTIMATED MAX</b><div class="note">Wendler\'s current guidance, and the same basis Building the Monolith needs. Using 85% everywhere means no reset when you switch blocks. If sets feel too easy, the TM test in week 11 will catch it and raise the TM for you.</div></div>'
  +LKEYS.map(function(k){return ''
    +'<div class="frow"><div class="flbl">'+LIFTS[k].n+' — rep max</div>'
    +'<div style="display:grid;grid-template-columns:1fr 70px;gap:6px">'
@@ -464,14 +467,20 @@ function rHome(){
 
   var warn='';
   if(b.kind==='btm')warn='<div class="banner lime"><b>EAT OR THIS DOESN\'T WORK</b><div class="note">4,000–5,000 kcal/day. Wendler\'s floor: 1.5 lb ground beef + 12 whole eggs daily. Conditioning stays in — 3–4 easy sessions/week.</div></div>';
-  if(b.kind==='tmtest')warn='<div class="banner"><b>TM TEST WEEK</b><div class="note">Last set is 100% of TM for 3+ reps. Hit 5+ and the app bumps you. Hit 3–4 and it holds. Under 3 and it cuts the TM 10%. Be honest — this is the safety valve for the whole loop.</div></div>';
+  if(b.kind==='tmtest')warn='<div class="banner"><b>TM TEST WEEK</b><div class="note">Last set is 100% of TM for 3+ reps. Under 3: TM is cut 10%. 3 to 5: it holds. 6 or more: the app raises the TM toward 85% of your estimated max, capped at +10%. Log the real rep count. This is the safety valve for the whole loop.</div></div>';
+
+  var undoBar='';
+  if(D.undo)undoBar='<div class="banner gold" style="display:flex;align-items:center;gap:10px">'
+   +'<div style="flex:1"><b>SKIPPED '+esc(D.undo.what.toUpperCase())+'</b>'
+   +'<div class="note">Position and training maxes can be put back. Undo is cleared once you log a real session.</div></div>'
+   +'<button class="btn-ghost" style="flex-shrink:0" onclick="undo()">UNDO</button></div>';
 
   el.innerHTML=
    '<div class="blockbar" style="border-left-color:'+clr+'">'
    +'<div class="bb-name" style="color:'+clr+'">'+b.n+'</div>'
    +'<div class="bb-sub">'+b.sub+' · week '+(e.w+1)+' of '+b.wks+' · arc week '+gw+' of 18</div>'
    +'<div class="wkdots">'+dots+'</div></div>'
-   +warn
+   +undoBar+warn
    +'<div class="today-hd"><div><div class="today-dow" style="color:'+clr+'">'+e.day.d+' · DAY '+(e.d+1)+'</div>'
    +'<div class="today-name">'+s.title+'</div></div>'+btn+'</div>'
    +rows
@@ -498,7 +507,22 @@ function statStrip(){
    +'<div class="stat-block"><div class="stat-num">'+(vol?Math.round(vol/1000)+'k':'—')+'</div><div class="stat-label">Last Vol lb</div></div></div>';
 }
 function toggleRun(){var t=new Date().toISOString().split('T')[0];if(D.runs[t])delete D.runs[t];else D.runs[t]=1;save();rHome();}
-function skipDay(){advance();toast('SKIPPED');rHome();}
+function pushUndo(what){
+  D.undo={pos:{b:D.pos.b,w:D.pos.w,d:D.pos.d},tm:JSON.parse(JSON.stringify(D.tm)),
+          tmLen:D.tmLog.length,what:what};
+}
+function undo(){
+  if(!D.undo){toast('NOTHING TO UNDO');return;}
+  D.pos={b:D.undo.pos.b,w:D.undo.pos.w,d:D.undo.pos.d};
+  D.tm=JSON.parse(JSON.stringify(D.undo.tm));
+  D.tmLog=D.tmLog.slice(0,D.undo.tmLen);
+  D.undo=null; save(); closeModal(); toast('UNDONE'); rHome();
+}
+function skipDay(){
+  var e=curEntry();
+  pushUndo(e.day.d+' '+buildSession(e).title);
+  advance(); save(); rHome();
+}
 
 /* ══════════════ WORKOUT ══════════════ */
 function startWorkout(){
@@ -544,7 +568,7 @@ function rLogBody(){
     var lastRef=lastFor(l.name);
     return '<div class="lift-block'+(allDone?' done-block':'')+'">'
      +'<div class="lift-hdr"><div style="flex:1"><div class="lift-name">'+esc(l.name)+'</div>'
-     +'<div class="lift-scheme">'+l.sets.length+' sets'+(l.sets[0].p?' · '+l.sets[0].p+'–'+l.sets[l.sets.length-1].p+'% TM':'')+'</div></div>'
+     +'<div class="lift-scheme">'+l.sets.length+' sets'+(l.sets[0].p?' · '+pctRange(l.sets)+' TM':'')+'</div></div>'
      +(allDone?'<span style="font-family:var(--font-display);font-size:13px;color:var(--lime)">✓</span>':'')+'</div>'
      +lastRef
      +'<div class="set-head"><div class="sc-lbl">tgt</div><div class="sc-lbl">weight</div><div class="sc-lbl">reps</div><div class="sc-lbl">rpe</div><div></div></div>'
@@ -568,6 +592,11 @@ function rLogBody(){
    +'<textarea rows="3" placeholder="How did it move? Anything cranky? Next-time weight?" onchange="ACT.note=this.value;save()" onblur="ACT.note=this.value;save()">'+esc(ACT.note||'')+'</textarea></div>';
   document.getElementById('logBody').innerHTML=warm+lifts+acc+note
    +'<div class="fb"><button class="btn-fire" onclick="finish()">FINISH SESSION</button></div>';
+}
+function pctRange(sets){
+  var ps=sets.map(function(s){return s.p;}).filter(function(p){return p;});
+  var lo=Math.min.apply(null,ps), hi=Math.max.apply(null,ps);
+  return lo===hi?lo+'%':lo+'–'+hi+'%';
 }
 function lastFor(name){
   for(var i=D.sessions.length-1;i>=0;i--){
@@ -641,11 +670,18 @@ function checkPR(key,w,r){
   if(now>best&&best>0)toast('PR — '+now+' e1RM (was '+best+')');
   else if(best===0)toast('BASELINE SET');
 }
-function finish(){
+function finish(force){
   flush();
-  var done=0;
-  ACT.lifts.forEach(function(l){l.sets.forEach(function(s){if(s.done)done++;});});
+  var done=0,total=0;
+  ACT.lifts.forEach(function(l){l.sets.forEach(function(s){total++;if(s.done)done++;});});
   if(!done){toast('CHECK OFF AT LEAST ONE SET');return;}
+  if(force!==true&&done<total){
+    openModal('<div class="mtitle">FINISH EARLY?</div>'
+     +'<div class="note">'+(total-done)+' of '+total+' sets are not checked off and will not be logged. This also moves you to the next day.</div>'
+     +'<div class="dbtns"><button class="dcancel" onclick="closeModal()">KEEP GOING</button>'
+     +'<button class="dok" onclick="closeModal();finish(true)">FINISH</button></div>');
+    return;
+  }
   D.sessions.push({id:Date.now(),date:new Date().toISOString().split('T')[0],idx:ACT.idx,
     title:ACT.title,block:ACT.block,color:ACT.color,note:ACT.note||'',
     lifts:ACT.lifts.map(function(l){return {key:l.key,name:l.name,
@@ -654,6 +690,7 @@ function finish(){
     acc:ACT.acc.map(function(a){return {name:a.name,reps:a.reps,tgt:a.tgt};})});
   var tt=(curEntry().block.kind==='tmtest');
   var res=tt?tmTestResult():null;
+  D.undo=null;
   ACT=null; advance(); save();
   stopRest();
   if(res)toast(res); else toast('SESSION LOGGED');
@@ -668,9 +705,9 @@ function cancelWorkout(){
 /* ══════════════ PROGRESSION ══════════════ */
 function advance(){
   var e=curEntry(), b=e.block, days=(b.kind==='btm')?DAYS3.length:DAYS4.length;
-  if(D.pos.d<days-1){D.pos.d++;return;}
+  if(D.pos.d<days-1){D.pos.d++;save();return;}
   D.pos.d=0;
-  if(D.pos.w<b.wks-1){D.pos.w++;return;}
+  if(D.pos.w<b.wks-1){D.pos.w++;save();return;}
   D.pos.w=0;
   if(b.bump===true)bumpTM('after '+b.n);
   D.pos.b=(D.pos.b+1)%BLOCKS.length;
@@ -683,15 +720,22 @@ function bumpTM(why,mult){
 }
 function tmTestResult(){
   /* last session logged is the TM test; grade the 100% set */
-  var s=D.sessions[D.sessions.length-1], msg='TM HELD';
+  var s=D.sessions[D.sessions.length-1], msg;
   var top=null;
   s.lifts.forEach(function(l){l.sets.forEach(function(st){if(st.p===100)top=st;});});
   if(!top)return null;
-  var k=s.lifts[0].key;
-  /* TM was already raised entering this week. The test only validates it. */
-  if(top.r<3){D.tm[k]=rnd(D.tm[k]*.9);msg=LIFTS[k].n+' TM TOO HIGH — CUT 10% → '+D.tm[k];}
-  else if(top.r<5)msg=LIFTS[k].n+' TM AT ITS CEILING ('+top.r+' reps) — HELD';
-  else msg=LIFTS[k].n+' TM VALIDATED ('+top.r+' reps)';
+  var k=s.lifts[0].key, n=LIFTS[k].n, old=D.tm[k];
+  if(top.r<3){
+    D.tm[k]=rnd(old*.9); msg=n+' TM TOO HIGH, CUT 10% → '+D.tm[k];
+  } else if(top.r<6){
+    msg=n+' TM HOLDS ('+top.r+' reps at 100%)';
+  } else {
+    /* 6+ reps at 100% TM means the TM is light. Pull it toward 85% of the estimated max.
+       Epley overstates past ~8 reps, so cap the reps used; cap the jump at +10%. */
+    var target=rnd(e1rm(top.w,Math.min(top.r,8))*.85), cap=rnd(old*1.10), nt=Math.min(target,cap);
+    if(nt>old){D.tm[k]=nt; msg=n+' TM UP '+old+' → '+nt+' ('+top.r+' reps at 100%)';}
+    else msg=n+' TM HOLDS ('+top.r+' reps at 100%)';
+  }
   D.tmLog.push({date:s.date,tm:JSON.parse(JSON.stringify(D.tm)),why:'TM test · '+k+' '+top.r+' reps'});
   return msg;
 }
@@ -743,6 +787,7 @@ function rGains(){
   var pills=LKEYS.map(function(k){return '<div class="pill'+(k===GKEY?' active':'')+'" onclick="GKEY=\''+k+'\';rGains()">'+LIFTS[k].n+'</div>';}).join('');
   var pts=[], bestE=0, bestSet=null;
   D.sessions.forEach(function(s){
+    if(/DELOAD/.test(s.block||''))return;  /* deload sets are not max efforts */
     s.lifts.forEach(function(l){
       if(l.key!==GKEY)return;
       l.sets.forEach(function(st){
@@ -836,7 +881,17 @@ function saveTM(){LKEYS.forEach(function(k){var v=parseFloat(document.getElement
  save();closeModal();toast('MAXES SAVED');rHome();}
 function stepBack(){
   var i=posIndex(D.pos);
-  if(i>0){var p=SCHED[i-1];D.pos={b:p.b,w:p.w,d:p.d};save();closeModal();rHome();}
+  if(i===0){toast('ALREADY AT THE START OF THE LOOP');return;}
+  pushUndo('stepped back');
+  var p=SCHED[i-1];
+  /* if we are crossing a block boundary backwards, unwind the TM bump too */
+  if(p.b!==D.pos.b&&BLOCKS[p.b].bump===true){
+    var prev=D.tmLog.length>1?D.tmLog[D.tmLog.length-2]:null;
+    if(prev&&D.tmLog[D.tmLog.length-1].why.indexOf('after ')===0){
+      D.tm=JSON.parse(JSON.stringify(prev.tm)); D.tmLog.pop();
+    }
+  }
+  D.pos={b:p.b,w:p.w,d:p.d}; save(); closeModal(); toast('BACK A DAY'); rHome();
 }
 function doExport(){
   var blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
